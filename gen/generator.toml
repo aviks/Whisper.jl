@@ -1,0 +1,17 @@
+[general]
+library_name = "libwhisper"
+output_file_path = "../src/LibWhisper.jl"
+module_name = "LibWhisper"
+jll_pkg_name = "whisper_cpp_jll"
+export_symbol_prefixes = ["whisper_"]
+use_deterministic_symbol = true
+smart_de_anonymize = true
+
+
+[codegen]
+opaque_func_arg_as_PtrCvoid = true
+is_function_strictly_typed = false
+
+[codegen.macro]
+macro_mode = "basic"
+
