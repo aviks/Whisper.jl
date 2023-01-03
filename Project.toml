@@ -10,6 +10,7 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 whisper_cpp_jll = "ba274cc4-b956-5b22-9ddf-0d83a922508d"
 
 [compat]
+Reexport = "1"
 DataDeps = "0.7"
 julia = "1.6.7"
 
