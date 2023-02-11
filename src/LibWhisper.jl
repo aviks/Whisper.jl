@@ -13,6 +13,7 @@ struct whisper_token_data
     id::whisper_token
     tid::whisper_token
     p::Cfloat
+    plog::Cfloat
     pt::Cfloat
     ptsum::Cfloat
     t0::Int64
@@ -20,8 +21,23 @@ struct whisper_token_data
     vlen::Cfloat
 end
 
-function whisper_init(path_model)
-    ccall((:whisper_init, libwhisper), Ptr{whisper_context}, (Ptr{Cchar},), path_model)
+struct whisper_model_loader
+    context::Ptr{Cvoid}
+    read::Ptr{Cvoid}
+    eof::Ptr{Cvoid}
+    close::Ptr{Cvoid}
+end
+
+function whisper_init_from_file(path_model)
+    ccall((:whisper_init_from_file, libwhisper), Ptr{whisper_context}, (Ptr{Cchar},), path_model)
+end
+
+function whisper_init_from_buffer(buffer, buffer_size)
+    ccall((:whisper_init_from_buffer, libwhisper), Ptr{whisper_context}, (Ptr{Cvoid}, Csize_t), buffer, buffer_size)
+end
+
+function whisper_init(loader)
+    ccall((:whisper_init, libwhisper), Ptr{whisper_context}, (Ptr{whisper_model_loader},), loader)
 end
 
 function whisper_free(ctx)
@@ -44,19 +60,11 @@ function whisper_decode(ctx, tokens, n_tokens, n_past, n_threads)
     ccall((:whisper_decode, libwhisper), Cint, (Ptr{whisper_context}, Ptr{whisper_token}, Cint, Cint, Cint), ctx, tokens, n_tokens, n_past, n_threads)
 end
 
-function whisper_sample_best(ctx)
-    ccall((:whisper_sample_best, libwhisper), whisper_token_data, (Ptr{whisper_context},), ctx)
-end
-
-function whisper_sample_timestamp(ctx, is_initial)
-    ccall((:whisper_sample_timestamp, libwhisper), whisper_token_data, (Ptr{whisper_context}, Bool), ctx, is_initial)
-end
-
 function whisper_tokenize(ctx, text, tokens, n_max_tokens)
     ccall((:whisper_tokenize, libwhisper), Cint, (Ptr{whisper_context}, Ptr{Cchar}, Ptr{whisper_token}, Cint), ctx, text, tokens, n_max_tokens)
 end
 
-# no prototype is found for this function at whisper.h:154:21, please use with caution
+# no prototype is found for this function at whisper.h:160:21, please use with caution
 function whisper_lang_max_id()
     ccall((:whisper_lang_max_id, libwhisper), Cint, ())
 end
@@ -93,8 +101,8 @@ function whisper_is_multilingual(ctx)
     ccall((:whisper_is_multilingual, libwhisper), Cint, (Ptr{whisper_context},), ctx)
 end
 
-function whisper_get_probs(ctx)
-    ccall((:whisper_get_probs, libwhisper), Ptr{Cfloat}, (Ptr{whisper_context},), ctx)
+function whisper_get_logits(ctx)
+    ccall((:whisper_get_logits, libwhisper), Ptr{Cfloat}, (Ptr{whisper_context},), ctx)
 end
 
 function whisper_token_to_str(ctx, token)
@@ -161,10 +169,10 @@ const whisper_new_segment_callback = Ptr{Cvoid}
 const whisper_encoder_begin_callback = Ptr{Cvoid}
 
 struct __JL_Ctag_2
-    n_past::Cint
+    best_of::Cint
 end
 function Base.getproperty(x::Ptr{__JL_Ctag_2}, f::Symbol)
-    f === :n_past && return Ptr{Cint}(x + 0)
+    f === :best_of && return Ptr{Cint}(x + 0)
     return getfield(x, f)
 end
 
@@ -181,14 +189,12 @@ end
 
 
 struct __JL_Ctag_3
-    n_past::Cint
-    beam_width::Cint
-    n_best::Cint
+    beam_size::Cint
+    patience::Cfloat
 end
 function Base.getproperty(x::Ptr{__JL_Ctag_3}, f::Symbol)
-    f === :n_past && return Ptr{Cint}(x + 0)
-    f === :beam_width && return Ptr{Cint}(x + 4)
-    f === :n_best && return Ptr{Cint}(x + 8)
+    f === :beam_size && return Ptr{Cint}(x + 0)
+    f === :patience && return Ptr{Cfloat}(x + 4)
     return getfield(x, f)
 end
 
@@ -205,7 +211,7 @@ end
 
 
 struct whisper_full_params
-    data::NTuple{128, UInt8}
+    data::NTuple{160, UInt8}
 end
 
 function Base.getproperty(x::Ptr{whisper_full_params}, f::Symbol)
@@ -231,12 +237,20 @@ function Base.getproperty(x::Ptr{whisper_full_params}, f::Symbol)
     f === :prompt_tokens && return Ptr{Ptr{whisper_token}}(x + 56)
     f === :prompt_n_tokens && return Ptr{Cint}(x + 64)
     f === :language && return Ptr{Ptr{Cchar}}(x + 72)
-    f === :greedy && return Ptr{__JL_Ctag_2}(x + 80)
-    f === :beam_search && return Ptr{__JL_Ctag_3}(x + 84)
-    f === :new_segment_callback && return Ptr{whisper_new_segment_callback}(x + 96)
-    f === :new_segment_callback_user_data && return Ptr{Ptr{Cvoid}}(x + 104)
-    f === :encoder_begin_callback && return Ptr{whisper_encoder_begin_callback}(x + 112)
-    f === :encoder_begin_callback_user_data && return Ptr{Ptr{Cvoid}}(x + 120)
+    f === :suppress_blank && return Ptr{Bool}(x + 80)
+    f === :temperature && return Ptr{Cfloat}(x + 84)
+    f === :max_initial_ts && return Ptr{Cfloat}(x + 88)
+    f === :length_penalty && return Ptr{Cfloat}(x + 92)
+    f === :temperature_inc && return Ptr{Cfloat}(x + 96)
+    f === :entropy_thold && return Ptr{Cfloat}(x + 100)
+    f === :logprob_thold && return Ptr{Cfloat}(x + 104)
+    f === :no_speech_thold && return Ptr{Cfloat}(x + 108)
+    f === :greedy && return Ptr{__JL_Ctag_2}(x + 112)
+    f === :beam_search && return Ptr{__JL_Ctag_3}(x + 116)
+    f === :new_segment_callback && return Ptr{whisper_new_segment_callback}(x + 128)
+    f === :new_segment_callback_user_data && return Ptr{Ptr{Cvoid}}(x + 136)
+    f === :encoder_begin_callback && return Ptr{whisper_encoder_begin_callback}(x + 144)
+    f === :encoder_begin_callback_user_data && return Ptr{Ptr{Cvoid}}(x + 152)
     return getfield(x, f)
 end
 
@@ -299,6 +313,14 @@ function whisper_full_get_token_p(ctx, i_segment, i_token)
     ccall((:whisper_full_get_token_p, libwhisper), Cfloat, (Ptr{whisper_context}, Cint, Cint), ctx, i_segment, i_token)
 end
 
+function whisper_bench_memcpy(n_threads)
+    ccall((:whisper_bench_memcpy, libwhisper), Cint, (Cint,), n_threads)
+end
+
+function whisper_bench_ggml_mul_mat(n_threads)
+    ccall((:whisper_bench_ggml_mul_mat, libwhisper), Cint, (Cint,), n_threads)
+end
+
 const WHISPER_SAMPLE_RATE = 16000
 
 const WHISPER_N_FFT = 400
@@ -310,7 +332,7 @@ const WHISPER_HOP_LENGTH = 160
 const WHISPER_CHUNK_SIZE = 30
 
 # exports
-const PREFIXES = ["whisper_"]
+const PREFIXES = ["whisper_", "WHISPER_"]
 for name in names(@__MODULE__; all=true), prefix in PREFIXES
     if startswith(string(name), prefix)
         @eval export $name

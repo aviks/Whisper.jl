@@ -3,10 +3,9 @@ library_name = "libwhisper"
 output_file_path = "../src/LibWhisper.jl"
 module_name = "LibWhisper"
 jll_pkg_name = "whisper_cpp_jll"
-export_symbol_prefixes = ["whisper_"]
+export_symbol_prefixes = ["whisper_", "WHISPER_"]
 use_deterministic_symbol = true
 smart_de_anonymize = true
-
 
 [codegen]
 opaque_func_arg_as_PtrCvoid = true

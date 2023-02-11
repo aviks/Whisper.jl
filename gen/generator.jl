@@ -9,7 +9,7 @@ cd(@__DIR__)
 options = load_options(joinpath(@__DIR__, "generator.toml"))
 
 
-include_dir = joinpath(@__DIR__, "include")
+include_dir = joinpath(whisper_cpp_jll.find_artifact_dir(), "include")
 headers = joinpath(include_dir, "whisper.h")
 
 args = get_default_args() 
