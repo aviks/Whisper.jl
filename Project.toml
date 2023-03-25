@@ -6,12 +6,10 @@ version = "0.1.0"
 [deps]
 CEnum = "fa961155-64e5-5f13-b03f-caf6b980ea82"
 DataDeps = "124859b0-ceae-595e-8997-d05f6a7a8dfe"
-Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 whisper_cpp_jll = "ba274cc4-b956-5b22-9ddf-0d83a922508d"
 
 [compat]
 CEnum = "0.4"
-Reexport = "1"
 DataDeps = "0.7"
 julia = "1.6.7"
 whisper_cpp_jll = "1.2"

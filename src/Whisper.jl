@@ -2,8 +2,6 @@ module Whisper
 using DataDeps
 
 
-# Write your package code here.
-
 include("LibWhisper.jl")
 using Whisper.LibWhisper
 
@@ -18,10 +16,11 @@ end
 
 # run inference using the whisper model
 # 
-# `full_infer(model, data)`
+# `transcribe(model, data)`
 # 
-#   data: array of floats containing 16kHz sampled audio
 #   model: model name 
+#   data: array of floats containing 16kHz sampled audio
+#   
 function transcribe(model, data)
     ctx = whisper_init_from_file(DataDeps.resolve("whisper-ggml-$model/ggml-$model.bin", "__FILE__") )
     wparams = whisper_full_default_params(LibWhisper.WHISPER_SAMPLING_GREEDY)
@@ -40,6 +39,7 @@ function transcribe(model, data)
         result = result * unsafe_string(txt)
         t0 = whisper_full_get_segment_t0(ctx, i)
         t1 = whisper_full_get_segment_t1(ctx, i)
+        @debug "Time for inference: ", t0-t1
     end
     return result
 end
