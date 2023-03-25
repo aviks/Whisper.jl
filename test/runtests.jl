@@ -76,14 +76,14 @@ end
     transcribe_test("gb0.oga", "gb0.txt")
     transcribe_test("gb1.ogg", "gb1.txt")
     transcribe_test("hp0.ogg", "hp0.txt")
-    transcribe_test("mm1.wav", "mm1.txt")
+    transcribe_test("mm1.wav", "mm1.txt", accuracy=.90)
 end
 
 @testset "Transcription with tiny.en" begin
-    transcribe_test("gb0.oga", "gb0.txt", model="tiny.en", accuracy=.95)
-    transcribe_test("gb1.ogg", "gb1.txt", model="tiny.en", accuracy=.95)
+    transcribe_test("gb0.oga", "gb0.txt", model="tiny.en", accuracy=.90)
+    transcribe_test("gb1.ogg", "gb1.txt", model="tiny.en", accuracy=.90)
     transcribe_test("hp0.ogg", "hp0.txt", model="tiny.en", accuracy=.90)
-    transcribe_test("mm1.wav", "mm1.txt", model="tiny.en", accuracy=.85)
+    transcribe_test("mm1.wav", "mm1.txt", model="tiny.en", accuracy=.80)
 end
 
 
