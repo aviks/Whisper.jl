@@ -14,22 +14,24 @@ function __init__()
     register_datadeps()
 end
 
-# run inference using the whisper model
-# 
-# `transcribe(model, data)`
-# 
-#   model: model name 
-#   data: array of floats containing 16kHz sampled audio
-#   
+"""
+    transcribe(model, data) -> String
+
+Run inference using the Whisper speech-to-text model. The model file is
+automatically downloaded from HuggingFace on first use.
+
+- `model`: Whisper model name (such as "base" or "medium.en")
+- `data`: `Vector{Float32}` containing 16kHz sampled audio
+"""
 function transcribe(model, data)
     ctx = whisper_init_from_file(DataDeps.resolve("whisper-ggml-$model/ggml-$model.bin", "__FILE__") )
     wparams = whisper_full_default_params(LibWhisper.WHISPER_SAMPLING_GREEDY)
-    
+
     ret = whisper_full_parallel(ctx, wparams, data, length(data), 1)
 
     if ret != 0
         error("Error running whisper model: $ret")
-    end 
+    end
 
     n_segments = whisper_full_n_segments(ctx)
 
