@@ -43,6 +43,9 @@ function transcribe(model, data)
         t1 = whisper_full_get_segment_t1(ctx, i)
         @debug "Time for inference: ", t0-t1
     end
+
+    whisper_free(ctx)
+
     return result
 end
 
