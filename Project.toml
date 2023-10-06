@@ -9,7 +9,7 @@ DataDeps = "124859b0-ceae-595e-8997-d05f6a7a8dfe"
 whisper_cpp_jll = "ba274cc4-b956-5b22-9ddf-0d83a922508d"
 
 [compat]
-CEnum = "0.4"
+CEnum = "0.4, 0.5"
 DataDeps = "0.7"
 julia = "1.6.7"
 whisper_cpp_jll = "1.2"
