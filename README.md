@@ -2,47 +2,96 @@
 
 [![Build Status](https://github.com/aviks/Whisper.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/aviks/Whisper.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-Whisper.jl is a Julia package for automatic speech recognition, based on [OpenAI's Whisper](https://github.com/openai/whisper) model. This package wraps the [whisper.cpp](https://github.com/ggerganov/whisper.cpp) code, which is a C/C++ implementation of the model. It uses the model weights which were published by OpenAI. The weights are downloaded on demand. 
+Whisper.jl is a Julia package for automatic speech recognition, based on [OpenAI's Whisper](https://github.com/openai/whisper) model. It wraps [whisper.cpp](https://github.com/ggml-org/whisper.cpp), a C/C++ implementation of the model, through [`whisper_cpp_jll`](https://github.com/JuliaBinaryWrappers/whisper_cpp_jll.jl). Model weights are downloaded on first use.
 
-### Quick Start Guide
+### Quick start
 
-The `transcribe` function is the simplest way to run speech recognition on an 
-audio signal. It takes as input the model name, and a float32 array with the sound signal. 
-The signal is expected to be sampled at 16kHz. 
+`transcribe` takes a model name and a vector of audio samples at **16 kHz, mono**, with values in `[-1, 1]`, and returns the transcript:
 
 ```julia
-using Whisper, LibSndFile, FileIO, SampledSignals
+using Whisper
 
-s = load("/path/to/audio_file.ogg")  
-
-# Whisper expects 16kHz sample rate and Float32 data
-sout = SampleBuf(Float32, 16000, round(Int, length(s)*(16000/samplerate(s))), nchannels(s))  
-write(SampleBufSink(sout), SampleBufSource(s))  # Resample
-
-if nchannels(sout) == 1
-    data  = sout.data
-elseif nchannels(sout) == 2
-    sd = sout.data
-    data = [sd[i,1] + sd[i,2] for i in 1:size(sd)[1]] #convert stereo to mono
-end
-
-result = transcribe("base.en", data)
+result = transcribe("base.en", audio)   # audio::Vector{Float32}, 16 kHz mono
 ```
 
-For more control, the [whisper.cpp C interface](https://github.com/ggerganov/whisper.cpp/blob/master/whisper.h) is available within the [`Whisper.LibWhisper` module](https://github.com/aviks/Whisper.jl/blob/main/src/LibWhisper.jl). 
+For more than one call, load the model once and reuse it — loading dominates for short clips:
+
+```julia
+ctx = WhisperContext("large-v3-turbo")          # downloads ~1.5 GB the first time
+result = transcribe(ctx, audio)
+for s in segments(ctx)                          # timestamps of the last transcription
+    println(s.t0, " – ", s.t1, ": ", s.text)    # seconds
+end
+close(ctx)                                      # or leave it to the GC
+```
+
+Options cover the common whisper.cpp settings:
+
+```julia
+transcribe(ctx, audio;
+    language = "auto",        # or an ISO 639-1 code; multilingual models only
+    translate = false,        # translate to English (multilingual models)
+    sampling = :beam,         # :greedy (default) or :beam
+    beam_size = 5,
+    n_threads = 8,
+    initial_prompt = "Names: Rackauckas, ModelingToolkit",   # primes the vocabulary
+)
+Whisper.detected_language(ctx)                  # after language = "auto"
+```
+
+#### Loading audio
+
+Whisper.jl takes samples, not files. Any loader works; this resamples to 16 kHz mono with [LibSndFile.jl](https://github.com/JuliaAudio/LibSndFile.jl) and [SampledSignals.jl](https://github.com/JuliaAudio/SampledSignals.jl):
+
+```julia
+using FileIO, LibSndFile, SampledSignals
+
+s = load("speech.ogg")
+n = round(Int, length(s) * (16000 / samplerate(s)))
+out = SampleBuf(zeros(Float32, n, nchannels(s)), 16000)          # zeroed: the resampler may write < n frames
+written = write(SampleBufSink(out), SampleBufSource(s))          # resample
+data = out.data[1:min(written, n), :]
+audio = nchannels(s) == 1 ? vec(data) : vec(sum(data, dims = 2)) ./ nchannels(s)
+```
+
+For a 16 kHz mono WAV, `WAV.wavread` gives usable samples directly.
 
 ### Models
 
-The following models are available, and should be referenced by name. The models with the `.en` suffix are specialised for the english language. 
+Use the name; the weights are fetched from HuggingFace on first use and cached by [DataDeps](https://github.com/oxinabox/DataDeps.jl). Models with an `.en` suffix are English-only and slightly more accurate for English; the others are multilingual.
 
-| Model               | Disk   | Mem     |
-| ---                 | ---    | ---     | 
-| tiny / tiny.en      |  75 MB | ~125 MB |
-| base / base.en      | 142 MB | ~210 MB | 
-| small / small.en    | 466 MB | ~600 MB |
-| medium / medium.en  | 1.5 GB | ~1.7 GB | 
-| large-v1 / large.en | 2.9 GB | ~3.3 GB | 
+| Model                   | Download | Notes                                         |
+| ---                     | ---      | ---                                           |
+| `tiny`, `tiny.en`       | 74 MB    | fastest, lowest quality                       |
+| `base`, `base.en`       | 141 MB   |                                               |
+| `small`, `small.en`     | 465 MB   |                                               |
+| `medium`, `medium.en`   | 1.4 GB   |                                               |
+| `large-v1`, `large-v2`  | 2.9 GB   |                                               |
+| `large-v3`              | 2.9 GB   | best quality                                  |
+| `large-v3-turbo`        | 1.5 GB   | about 8× faster than large-v3, similar quality |
 
-### TODO
+`available_models()` lists them. A path to a ggml `.bin` file is accepted in place of a name.
 
-The biggest missing functionality is a streaming interface. 
+### GPU
+
+`whisper_cpp_jll` ships CUDA builds for Linux (x86_64 and aarch64, including Jetson) and Metal for Apple Silicon. The right build is selected automatically at install time when [CUDA_Runtime_jll](https://github.com/JuliaBinaryWrappers/CUDA_Runtime_jll.jl) (installed by CUDA.jl) is present, and `WhisperContext` uses the GPU by default when one is available — nothing to configure. On a CPU-only build `use_gpu = true` silently falls back to the CPU.
+
+To see which backend is in use:
+
+```julia
+Whisper.log_level!(:info)        # whisper.cpp logs backend and model details on load
+ctx = WhisperContext("base.en")
+```
+
+`WhisperContext(...; use_gpu = false)` forces the CPU; `gpu_device = n` selects a GPU.
+
+To use your own whisper.cpp build (a different CUDA version, ROCm, Vulkan, ...), point Julia at it with an [`Overrides.toml`](https://pkgdocs.julialang.org/v1/artifacts/#Overriding-artifact-locations) for the `whisper_cpp_jll` artifact. The override must be a full `cmake --install` prefix of the **same** whisper.cpp version, since the bindings are generated from its headers.
+
+### Lower level
+
+The whole whisper.cpp C API is available as `Whisper.LibWhisper`, generated by [Clang.jl](https://github.com/JuliaInterop/Clang.jl) from `whisper.h` (`gen/generator.jl`). `whisper_full_params` is exposed as an opaque struct with generated pointer accessors; see `transcribe` in `src/Whisper.jl` for how to fill it.
+
+### Not yet supported
+
+- Streaming / real-time transcription (whisper.cpp's `stream` example is a separate program, not a library API).
+- Word-level timestamps (`token_timestamps`), speaker diarization (`tdrz`), and grammar-constrained decoding are reachable through `LibWhisper` but have no high-level API.

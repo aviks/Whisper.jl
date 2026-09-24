@@ -6,6 +6,24 @@ jll_pkg_name = "whisper_cpp_jll"
 export_symbol_prefixes = ["whisper_", "WHISPER_"]
 use_deterministic_symbol = true
 smart_de_anonymize = true
+# ggml function-like macros that Clang.jl cannot translate (they expand to C
+# statements, not values) and keyword aliases with no Julia equivalent.
+output_ignorelist = [
+    "^GGML_TENSOR_LOCALS.*",
+    "^GGML_TENSOR_(UNARY|BINARY|TERNARY)_OP_LOCALS.*",
+    "^GGML_RESTRICT$",
+    "^GGML_NORETURN$",
+    "^GGML_UNUSED.*",
+    "^GGML_PAD$",
+    "^GGML_ASSERT$",
+    "^GGML_ABORT$",
+    "^GGML_UNREACHABLE$",
+    "^GGML_DEPRECATED$",
+    "^GGML_ATTRIBUTE_FORMAT$",
+    "^GGML_API$",
+    "^GGML_CALL$",
+    "^GGML_MROPE_SECTIONS$",
+]
 
 [codegen]
 opaque_func_arg_as_PtrCvoid = true
@@ -13,4 +31,3 @@ is_function_strictly_typed = false
 
 [codegen.macro]
 macro_mode = "basic"
-
